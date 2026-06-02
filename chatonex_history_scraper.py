@@ -12,7 +12,7 @@ import os
 import re
 from pathlib import Path
 from datetime import datetime
-from scrapling.fetchers import DynamicSession
+from scrapling.fetchers import AsyncDynamicSession
 
 
 class ChatOneXHistoryScraper:
@@ -26,7 +26,7 @@ class ChatOneXHistoryScraper:
         print(f"[✓] 输出目录: {self.output_dir.absolute()}")
     
     def _sanitize_filename(self, name: str) -> str:
-        """���理文件名，移除非法字符"""
+        """清理文件名，移除非法字符"""
         # 移除或替换非法字符
         name = re.sub(r'[<>:"/\\|?*]', '_', name)
         # 移除末尾的点和空格
@@ -36,7 +36,7 @@ class ChatOneXHistoryScraper:
             name = name[:200]
         return name if name else "untitled"
     
-    async def login(self, session: DynamicSession) -> bool:
+    async def login(self, session: AsyncDynamicSession) -> bool:
         """
         执行登录流程
         
@@ -55,7 +55,7 @@ class ChatOneXHistoryScraper:
         try:
             # 第1步: 访问网站
             print(f"\n[1/6] 访问网站: {self.url}")
-            page = session.fetch(self.url, headless=False)
+            page = await session.fetch(self.url, headless=False)
             print(f"[✓] 页面加载完成，状态码: {page.status}")
             
             # 等待页面加载稳定
@@ -77,8 +77,7 @@ class ChatOneXHistoryScraper:
                     # 使用 page_action 来执行 JavaScript 点击
                     print(f"  尝试选择器: {selector}")
                     # 这里需要使用浏览器自动化来点击
-                    # 由于 Scrapling 的 DynamicSession 基于 Playwright
-                    session._browser_tab.click(selector, timeout=3000)
+                    await session._browser_tab.click(selector, timeout=3000)
                     phone_login_found = True
                     print("[✓] 成功点击手机登录按钮")
                     break
@@ -102,7 +101,7 @@ class ChatOneXHistoryScraper:
             phone_filled = False
             for selector in phone_input_selectors:
                 try:
-                    session._browser_tab.fill(selector, self.phone, timeout=3000)
+                    await session._browser_tab.fill(selector, self.phone, timeout=3000)
                     phone_filled = True
                     print(f"[✓] 成功填写手机号到选择器: {selector}")
                     break
@@ -127,7 +126,7 @@ class ChatOneXHistoryScraper:
             code_button_found = False
             for selector in code_button_selectors:
                 try:
-                    session._browser_tab.click(selector, timeout=3000)
+                    await session._browser_tab.click(selector, timeout=3000)
                     code_button_found = True
                     print("[✓] 成功点击获取验证码按钮")
                     break
@@ -166,7 +165,7 @@ class ChatOneXHistoryScraper:
             code_filled = False
             for selector in code_input_selectors:
                 try:
-                    session._browser_tab.fill(selector, verification_code, timeout=3000)
+                    await session._browser_tab.fill(selector, verification_code, timeout=3000)
                     code_filled = True
                     print(f"[✓] 成功填写验证码")
                     break
@@ -191,7 +190,7 @@ class ChatOneXHistoryScraper:
             login_clicked = False
             for selector in login_button_selectors:
                 try:
-                    session._browser_tab.click(selector, timeout=3000)
+                    await session._browser_tab.click(selector, timeout=3000)
                     login_clicked = True
                     print("[✓] 成功点击登录按钮")
                     break
@@ -218,7 +217,7 @@ class ChatOneXHistoryScraper:
             return True  # 继续处理，假设手动登录成功
 
 
-    async def extract_history_records(self, session: DynamicSession) -> list:
+    async def extract_history_records(self, session: AsyncDynamicSession) -> list:
         """
         提取历史记录列表
         
@@ -231,7 +230,7 @@ class ChatOneXHistoryScraper:
         try:
             # 刷新页面确保获取最新内容
             print("\n[1/3] 刷新页面...")
-            page = session.fetch(self.url, headless=False)
+            page = await session.fetch(self.url, headless=False)
             await asyncio.sleep(2)
             
             # 获取当前页面的 HTML
@@ -299,7 +298,7 @@ class ChatOneXHistoryScraper:
             return records
         
         except Exception as e:
-            print(f"[✗] 提取记录出错: {str(e)}")
+            print(f"[���] 提取记录出错: {str(e)}")
             return []
     
     async def export_records(self, records: list) -> int:
@@ -407,8 +406,8 @@ class ChatOneXHistoryScraper:
         print(f"输出目录: {self.output_dir.absolute()}\n")
         
         try:
-            # 使用 DynamicSession (浏览器自动化) - 使用 with 而不是 async with
-            with DynamicSession(headless=False) as session:
+            # 使用 AsyncDynamicSession (异步浏览器自动化)
+            async with AsyncDynamicSession(headless=False) as session:
                 # 步骤 1: 登录
                 login_success = await self.login(session)
                 if not login_success:
@@ -450,7 +449,7 @@ async def main():
 if __name__ == "__main__":
     # 检查依赖
     try:
-        from scrapling.fetchers import DynamicSession
+        from scrapling.fetchers import AsyncDynamicSession
     except ImportError:
         print("错误: 未找到 Scrapling 库")
         print("\n请先安装 Scrapling:")
